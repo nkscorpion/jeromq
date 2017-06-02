@@ -2,18 +2,18 @@ package org.zeromq;
 
 import org.junit.After;
 import org.junit.Assert;
+import org.junit.Before;
+import org.junit.Test;
+import org.zeromq.ZMQ.PollItem;
 import org.zeromq.ZMQ.Poller;
 import org.zeromq.ZMQ.Socket;
-import org.zeromq.ZMQ.PollItem;
-import org.junit.Test;
-import org.junit.Before;
 
 public class TestZLoop
 {
-    private String received;
+    private String   received;
     private ZContext ctx;
-    private Socket input;
-    private Socket output;
+    private Socket   input;
+    private Socket   output;
 
     @Before
     public void setUp()
@@ -42,7 +42,10 @@ public class TestZLoop
     {
         int rc = 0;
 
-        ZLoop loop = new ZLoop();
+        // setUp() should create the context
+        assert (ctx != null);
+
+        ZLoop loop = new ZLoop(ctx);
         assert (loop != null);
 
         ZLoop.IZLoopHandler timerEvent = new ZLoop.IZLoopHandler()
@@ -84,7 +87,7 @@ public class TestZLoop
     {
         int rc = 0;
 
-        ZLoop loop = new ZLoop();
+        ZLoop loop = new ZLoop(ctx);
         assert (loop != null);
 
         ZLoop.IZLoopHandler timerEvent = new ZLoop.IZLoopHandler()
@@ -142,7 +145,7 @@ public class TestZLoop
     {
         int rc = 0;
 
-        ZLoop loop = new ZLoop();
+        ZLoop loop = new ZLoop(ctx);
         assert (loop != null);
 
         ZLoop.IZLoopHandler timerEvent = new ZLoop.IZLoopHandler()
@@ -198,7 +201,7 @@ public class TestZLoop
     {
         int rc = 0;
 
-        ZLoop loop = new ZLoop();
+        ZLoop loop = new ZLoop(ctx);
         assert (loop != null);
 
         ZLoop.IZLoopHandler timerEvent = new ZLoop.IZLoopHandler()

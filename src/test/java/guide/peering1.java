@@ -1,11 +1,11 @@
 package guide;
 
+import java.nio.channels.Selector;
 import java.util.Random;
 
-import org.zeromq.ZMQ.Poller;
 import org.zeromq.ZContext;
 import org.zeromq.ZMQ;
-import org.zeromq.ZMQ.PollItem;
+import org.zeromq.ZMQ.Poller;
 import org.zeromq.ZMQ.Socket;
 
 //  Broker peering simulation (part 1)
@@ -28,6 +28,7 @@ public class peering1
         Random rand = new Random(System.nanoTime());
 
         ZContext ctx = new ZContext();
+        Selector selector = ctx.createSelector();
 
         //  Bind state backend to endpoint
         Socket statebe = ctx.createSocket(ZMQ.PUB);
@@ -44,26 +45,28 @@ public class peering1
         }
         //  The main loop sends out status messages to peers, and collects
         //  status messages back from peers. The zmq_poll timeout defines
-        //  our own heartbeat:
+        //  our own heartbeat.
+        Poller poller = ctx.createPoller(1);
+        poller.register(statefe, Poller.POLLIN);
 
         while (true) {
             //  Poll for activity, or 1 second timeout
-            PollItem items[] = {new PollItem(statefe, Poller.POLLIN)};
-            int rc = ZMQ.poll(items, 1000);
+            int rc = poller.poll(1000);
             if (rc == -1)
-                break;              //  Interrupted
+                break; //  Interrupted
 
             //  Handle incoming status messages
-            if (items[0].isReadable()) {
+            if (poller.pollin(0)) {
                 String peer_name = new String(statefe.recv(0), ZMQ.CHARSET);
                 String available = new String(statefe.recv(0), ZMQ.CHARSET);
                 System.out.printf("%s - %s workers free\n", peer_name, available);
-            } else {
+            }
+            else {
                 //  Send random values for worker availability
                 statebe.send(self, ZMQ.SNDMORE);
                 statebe.send(String.format("%d", rand.nextInt(10)), 0);
             }
         }
-        ctx.destroy();
+        ctx.close();
     }
 }

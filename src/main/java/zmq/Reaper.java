@@ -5,36 +5,39 @@ import java.io.IOException;
 import java.nio.channels.SelectableChannel;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-public class Reaper extends ZObject implements IPollEvents, Closeable
+import zmq.poll.IPollEvents;
+import zmq.poll.Poller;
+
+final class Reaper extends ZObject implements IPollEvents, Closeable
 {
     //  Reaper thread accesses incoming commands via this mailbox.
     private final Mailbox mailbox;
 
     //  Handle associated with mailbox' file descriptor.
-    private final SelectableChannel mailboxHandle;
+    private final Poller.Handle mailboxHandle;
 
     //  I/O multiplexing is performed using a poller object.
     private final Poller poller;
 
     //  Number of sockets being reaped at the moment.
-    private int sockets;
+    private int socketsReaping;
 
     //  If true, we were already asked to terminate.
     private final AtomicBoolean terminating = new AtomicBoolean();
 
-    private String name;
+    private final String name;
 
-    public Reaper(Ctx ctx, int tid)
+    Reaper(Ctx ctx, int tid)
     {
         super(ctx, tid);
-        sockets = 0;
+        socketsReaping = 0;
         name = "reaper-" + tid;
-        poller = new Poller(name);
+        poller = new Poller(ctx, name);
 
-        mailbox = new Mailbox(name);
+        mailbox = new Mailbox(ctx, name, tid);
 
-        mailboxHandle = mailbox.getFd();
-        poller.addHandle(mailboxHandle, this);
+        SelectableChannel fd = mailbox.getFd();
+        mailboxHandle = poller.addHandle(fd, this);
         poller.setPollIn(mailboxHandle);
     }
 
@@ -45,17 +48,17 @@ public class Reaper extends ZObject implements IPollEvents, Closeable
         mailbox.close();
     }
 
-    public Mailbox getMailbox()
+    Mailbox getMailbox()
     {
         return mailbox;
     }
 
-    public void start()
+    void start()
     {
         poller.start();
     }
 
-    public void stop()
+    void stop()
     {
         if (!terminating.get()) {
             sendStop();
@@ -73,7 +76,7 @@ public class Reaper extends ZObject implements IPollEvents, Closeable
             }
 
             //  Process the command.
-            cmd.destination().processCommand(cmd);
+            cmd.process();
         }
     }
 
@@ -107,33 +110,36 @@ public class Reaper extends ZObject implements IPollEvents, Closeable
         terminating.set(true);
 
         //  If there are no sockets being reaped finish immediately.
-        if (sockets == 0) {
-            sendDone();
-            poller.removeHandle(mailboxHandle);
-            poller.stop();
+        if (socketsReaping == 0) {
+            finishTerminating();
         }
     }
 
     @Override
     protected void processReap(SocketBase socket)
     {
+        ++socketsReaping;
+
         //  Add the socket to the poller.
         socket.startReaping(poller);
-
-        ++sockets;
     }
 
     @Override
     protected void processReaped()
     {
-        --sockets;
+        --socketsReaping;
 
         //  If reaped was already asked to terminate and there are no more sockets,
         //  finish immediately.
-        if (sockets == 0 && terminating.get()) {
-            sendDone();
-            poller.removeHandle(mailboxHandle);
-            poller.stop();
+        if (socketsReaping == 0 && terminating.get()) {
+            finishTerminating();
         }
+    }
+
+    private void finishTerminating()
+    {
+        sendDone();
+        poller.removeHandle(mailboxHandle);
+        poller.stop();
     }
 }

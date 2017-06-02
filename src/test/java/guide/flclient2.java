@@ -1,8 +1,10 @@
 package guide;
 
+import java.nio.channels.Selector;
+
 import org.zeromq.ZContext;
 import org.zeromq.ZMQ;
-import org.zeromq.ZMQ.PollItem;
+import org.zeromq.ZMQ.Poller;
 import org.zeromq.ZMQ.Socket;
 import org.zeromq.ZMsg;
 
@@ -17,10 +19,10 @@ public class flclient2
     //  Here is the {{flclient}} class implementation. Each instance has a
     //  context, a DEALER socket it uses to talk to the servers, a counter
     //  of how many servers it's connected to, and a request getSequence number:
-    private ZContext ctx;        //  Our context wrapper
-    private Socket socket;       //  DEALER socket talking to servers
-    private int servers;         //  How many servers we have connected to
-    private int sequence;        //  Number of requests ever sent
+    private ZContext ctx;      //  Our context wrapper
+    private Socket   socket;   //  DEALER socket talking to servers
+    private int      servers;  //  How many servers we have connected to
+    private int      sequence; //  Number of requests ever sent
 
     public flclient2()
     {
@@ -41,6 +43,8 @@ public class flclient2
 
     private ZMsg request(ZMsg request)
     {
+        Selector selector = ctx.createSelector();
+
         //  Prefix request with getSequence number and empty envelope
         String sequenceText = String.format("%d", ++sequence);
         request.push(sequenceText);
@@ -56,10 +60,13 @@ public class flclient2
         //  Since we can poll several times, calculate each one
         ZMsg reply = null;
         long endtime = System.currentTimeMillis() + GLOBAL_TIMEOUT;
+
+        Poller poller = ctx.createPoller(1);
+        poller.register(socket, Poller.POLLIN);
+
         while (System.currentTimeMillis() < endtime) {
-            PollItem[] items = { new PollItem(socket, ZMQ.Poller.POLLIN) };
-            ZMQ.poll(items, endtime - System.currentTimeMillis());
-            if (items[0].isReadable()) {
+            poller.poll(endtime - System.currentTimeMillis());
+            if (poller.pollin(0)) {
                 //  Reply is [empty][getSequence][OK]
                 reply = ZMsg.recvMsg(socket);
                 assert (reply.size() == 3);
@@ -76,10 +83,10 @@ public class flclient2
 
     }
 
-    public static void main (String[] argv)
+    public static void main(String[] argv)
     {
         if (argv.length == 0) {
-            System.out.printf ("I: syntax: flclient2 <endpoint> ...\n");
+            System.out.printf("I: syntax: flclient2 <endpoint> ...\n");
             System.exit(0);
         }
 
@@ -104,8 +111,7 @@ public class flclient2
             }
             reply.destroy();
         }
-        System.out.printf ("Average round trip cost: %d usec\n",
-                (int) (System.currentTimeMillis() - start) / 10);
+        System.out.printf("Average round trip cost: %d usec\n", (int) (System.currentTimeMillis() - start) / 10);
 
         client.destroy();
     }

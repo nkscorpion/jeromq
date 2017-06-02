@@ -1,8 +1,10 @@
 package guide;
 
+import java.nio.channels.Selector;
+
 import org.zeromq.ZContext;
 import org.zeromq.ZMQ;
-import org.zeromq.ZMQ.PollItem;
+import org.zeromq.ZMQ.Poller;
 import org.zeromq.ZMQ.Socket;
 import org.zeromq.ZMsg;
 
@@ -11,10 +13,11 @@ import org.zeromq.ZMsg;
 public class flclient1
 {
     private static final int REQUEST_TIMEOUT = 1000;
-    private static final int MAX_RETRIES = 3;       //  Before we abandon
+    private static final int MAX_RETRIES     = 3;   //  Before we abandon
 
-    private static ZMsg tryRequest (ZContext ctx, String endpoint, ZMsg request)
+    private static ZMsg tryRequest(ZContext ctx, String endpoint, ZMsg request)
     {
+        Selector selector = ctx.createSelector();
         System.out.printf("I: trying echo service at %s...\n", endpoint);
         Socket client = ctx.createSocket(ZMQ.REQ);
         client.connect(endpoint);
@@ -22,10 +25,14 @@ public class flclient1
         //  Send request, wait safely for reply
         ZMsg msg = request.duplicate();
         msg.send(client);
-        PollItem[] items = { new PollItem(client, ZMQ.Poller.POLLIN) };
-        ZMQ.poll(items, REQUEST_TIMEOUT);
+
+        Poller poller = ctx.createPoller(1);
+        poller.register(client, Poller.POLLIN);
+
+        poller.poll(REQUEST_TIMEOUT);
+
         ZMsg reply = null;
-        if (items[0].isReadable())
+        if (poller.pollin(0))
             reply = ZMsg.recvMsg(client);
 
         //  Close socket in any case, we're done with it now
@@ -37,7 +44,7 @@ public class flclient1
     //  to. If it has two or more servers to talk to, it will try each server just
     //  once:
 
-    public static void main (String[] argv)
+    public static void main(String[] argv)
     {
         ZContext ctx = new ZContext();
         ZMsg request = new ZMsg();
@@ -46,16 +53,15 @@ public class flclient1
 
         int endpoints = argv.length;
         if (endpoints == 0)
-            System.out.printf ("I: syntax: flclient1 <endpoint> ...\n");
-        else
-        if (endpoints == 1) {
+            System.out.printf("I: syntax: flclient1 <endpoint> ...\n");
+        else if (endpoints == 1) {
             //  For one endpoint, we retry N times
             int retries;
             for (retries = 0; retries < MAX_RETRIES; retries++) {
-                String endpoint = argv [0];
+                String endpoint = argv[0];
                 reply = tryRequest(ctx, endpoint, request);
                 if (reply != null)
-                    break;          //  Successful
+                    break; //  Successful
                 System.out.printf("W: no response from %s, retrying...\n", endpoint);
             }
         }
@@ -64,17 +70,18 @@ public class flclient1
             int endpointNbr;
             for (endpointNbr = 0; endpointNbr < endpoints; endpointNbr++) {
                 String endpoint = argv[endpointNbr];
-                reply = tryRequest (ctx, endpoint, request);
+                reply = tryRequest(ctx, endpoint, request);
                 if (reply != null)
-                    break;          //  Successful
-                System.out.printf ("W: no response from %s\n", endpoint);
+                    break; //  Successful
+                System.out.printf("W: no response from %s\n", endpoint);
             }
         }
         if (reply != null) {
-            System.out.printf ("Service is running OK\n");
+            System.out.printf("Service is running OK\n");
             reply.destroy();
         }
-        request.destroy();;
+        request.destroy();
+        ;
         ctx.destroy();
     }
 

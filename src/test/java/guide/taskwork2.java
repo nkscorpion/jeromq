@@ -6,9 +6,11 @@ import org.zeromq.ZMQ;
  *  Task worker - design 2
  *  Adds pub-sub flow to receive and respond to kill signal
  */
-public class taskwork2 {
+public class taskwork2
+{
 
-    public static void main (String[] args) throws InterruptedException {
+    public static void main(String[] args) throws InterruptedException
+    {
         ZMQ.Context context = ZMQ.context(1);
 
         ZMQ.Socket receiver = context.socket(ZMQ.PULL);
@@ -21,19 +23,19 @@ public class taskwork2 {
         controller.connect("tcp://localhost:5559");
         controller.subscribe(ZMQ.SUBSCRIPTION_ALL);
 
-        ZMQ.Poller items = new ZMQ.Poller (2);
+        ZMQ.Poller items = context.poller(2);
         items.register(receiver, ZMQ.Poller.POLLIN);
         items.register(controller, ZMQ.Poller.POLLIN);
 
         while (true) {
-            
+
             items.poll();
-            
+
             if (items.pollin(0)) {
 
-                String message = receiver.recvStr (0);
+                String message = receiver.recvStr(0);
                 long nsec = Long.parseLong(message);
-                
+
                 //  Simple progress indicator for the viewer
                 System.out.print(message + '.');
                 System.out.flush();
@@ -50,7 +52,7 @@ public class taskwork2 {
             }
 
         }
-        
+
         // Finished
         receiver.close();
         sender.close();

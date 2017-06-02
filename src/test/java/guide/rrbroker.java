@@ -9,21 +9,23 @@ import org.zeromq.ZMQ.Socket;
 * Simple request-reply broker
 *
 */
-public class rrbroker{
+public class rrbroker
+{
 
-    public static void main (String[] args) {
+    public static void main(String[] args)
+    {
         //  Prepare our context and sockets
         Context context = ZMQ.context(1);
 
         Socket frontend = context.socket(ZMQ.ROUTER);
-        Socket backend  = context.socket(ZMQ.DEALER);
+        Socket backend = context.socket(ZMQ.DEALER);
         frontend.bind("tcp://*:5559");
         backend.bind("tcp://*:5560");
 
         System.out.println("launch and connect broker.");
 
         //  Initialize poll set
-        Poller items = new Poller (2);
+        Poller items = context.poller(2);
         items.register(frontend, Poller.POLLIN);
         items.register(backend, Poller.POLLIN);
 
@@ -31,7 +33,7 @@ public class rrbroker{
         byte[] message;
 
         //  Switch messages between sockets
-        while (!Thread.currentThread().isInterrupted()) {            
+        while (!Thread.currentThread().isInterrupted()) {
             //  poll and memorize multipart detection
             items.poll();
 
@@ -43,7 +45,7 @@ public class rrbroker{
 
                     // Broker it
                     backend.send(message, more ? ZMQ.SNDMORE : 0);
-                    if(!more){
+                    if (!more) {
                         break;
                     }
                 }
@@ -54,8 +56,8 @@ public class rrbroker{
                     message = backend.recv(0);
                     more = backend.hasReceiveMore();
                     // Broker it
-                    frontend.send(message,  more ? ZMQ.SNDMORE : 0);
-                    if(!more){
+                    frontend.send(message, more ? ZMQ.SNDMORE : 0);
+                    if (!more) {
                         break;
                     }
                 }

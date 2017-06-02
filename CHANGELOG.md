@@ -1,8 +1,76 @@
 # Changelog
 
-## v0.3.6
+## v0.4.1 (unreleased)
 
-## v0.3.5
+### Changed
+
+* [#413](https://github.com/zeromq/jeromq/pull/413): fixed a NullPointerException when ZMQ.ZMQ_TCP_ACCEPT_FILTER is used
+
+## v0.4.0 (2017-03-22)
+
+### Added
+
+* [#366](https://github.com/zeromq/jeromq/pull/366): support for `ZMQ_REQ_RELAXED` and `ZMQ_REQ_CORRELATE` socket options
+
+* [#375](https://github.com/zeromq/jeromq/pull/375): re-added `ZMQ.Socket.disconnect`, which had been removed in 0.3.6 because the contributor who originally added it did not agree to the license change from LGPL to MPLv2
+
+### Changed
+
+* [#374](https://github.com/zeromq/jeromq/pull/374):
+  * fixed a NullPointerException and mangling of existing indexes in ZMQ.Poller
+  * fixed a Windows bug in Signaler
+  * other small changes to keep JeroMQ in sync with jzmq
+
+* [#386](https://github.com/zeromq/jeromq/pull/386): improved deallocation of polling Selector resources. When creating a poller via `ZMQ.Context.poller` or `ZContext.createPoller`, the context will manage the Selector resources and ensure that they are deallocated when the context is terminated.
+
+* [#387](https://github.com/zeromq/jeromq/pull/387): (**BREAKING CHANGE**) It is no longer possible to create a ZMQ.Poller in any way except via a context.  This is to ensure that all Selector resources are deallocated when a context is terminated.
+
+* [#388](https://github.com/zeromq/jeromq/pull/388) `ZMQ.Socket.setLinger` can now be called safely after a context is terminated.
+
+* [#390](https://github.com/zeromq/jeromq/pull/390): fixed a bug where terminating a context while polling would sometimes cause a ClosedChannelException.
+
+* [#399](https://github.com/zeromq/jeromq/pull/399): fixed a NullPointerException that would sometimes occur when terminating a context
+
+* [#400](https://github.com/zeromq/jeromq/pull/400): (**BREAKING CHANGE**)
+  * deprecated the setters `setIoThreads`, `setMain` and `setContext` in `ZContext`. These parameters are set in the constructor and `final`. Because it is no longer possible to set these values after constructing a ZContext, the setters are now no-ops.
+
+* [#402](https://github.com/zeromq/jeromq/pull/402): added constructors for ZPoller that take a ZContext argument, thus making it possible to create a ZPoller whose Selector resources are managed by the context.
+
+## v0.3.6 (2016-09-27)
+
+### Added
+
+* [#292](https://github.com/zeromq/jeromq/pull/292/commits/12befcb27f13572a5a49669e433a399c3e5a72ac): support for `ZMQ_XPUB_NODROP` and `ZMQ_XPUB_VERBOSE_UNSUBSCRIBE` options
+
+* [#299](https://github.com/zeromq/jeromq/pull/299): a setter for UncaughtExceptionHandlers in ZBeacon threads
+
+* [#309](https://github.com/zeromq/jeromq/pull/309): MsgAllocator allows you to define how Msgs are allocated.
+
+* [#316](https://github.com/zeromq/jeromq/pull/316): ZSocket high-level API allows you to work with sockets directly without having to manage the ZMQ context.
+
+### Changed
+
+* [**JeroMQ no longer supports Java 6.**](https://github.com/zeromq/jeromq/pull/316/commits/3cafb3babdb7509ec7adb705e1dacb6a804294a7)
+
+* Changed from LGPL to [MPLv2](https://www.mozilla.org/en-US/MPL/2.0/) license.
+
+* Related to changing license, the following changes were made as a result of reverting pre-0.3.6 commits by contributors who did not agree to the license change:
+  * `ZMQ.Socket.disconnect` method removed
+  * [Slight changes to the way ephemeral ports are handled](https://github.com/zeromq/jeromq/pull/354/commits/f455c740be4950ea7973276c33141008dadd97e7).
+
+* [#266](https://github.com/zeromq/jeromq/pull/266): fixed a NullPointerException bug in `ZMsg.dump` when attempting to dump a ZMsg after its frames have been cleared
+
+* [#271](https://github.com/zeromq/jeromq/pull/271), [#272](https://github.com/zeromq/jeromq/pull/272): misc fixes and improvements to ZAgent, ZActor, ZProxy, and ZStar
+
+* [#295](https://github.com/zeromq/jeromq/pull/295): renamed `ZMQ.Socket.setRouterHandlover` to `ZMQ.Socket.setRouterHandover` (typo fix)
+
+* [#301](https://github.com/zeromq/jeromq/pull/301): fixed [a bug](https://github.com/zeromq/jeromq/issues/280) where if a frame failed to send, it would still try to send the next frame
+
+* [#306](https://github.com/zeromq/jeromq/pull/306), [#308](https://github.com/zeromq/jeromq/pull/308), [#311](https://github.com/zeromq/jeromq/pull/311): misc byte buffer performance improvements and bugfixes
+
+* [#324](https://github.com/zeromq/jeromq/pull/324): implementation changes to avoid extra bytes being copied in PUB/SUB
+
+## v0.3.5 (2015-07-15)
 
  * Capitalize constants
  * Use for each style
@@ -82,7 +150,7 @@
  * Fix resource leak at socket close
  * Fix c-style method name
 
-## v0.3.4
+## v0.3.4 (2014-05-15)
 
 * Various code improvements
 * Add unbind method to org.zeromq.ZMQ.Socket
@@ -104,7 +172,7 @@
 * Revert back to use currentTimeMillis because it's less expensive than nanoTime
 * Fix issue #122 - handshake now uses ByteBuffer accessor methods directly
 
-## v0.3.2
+## v0.3.2 (2013-12-10)
 
 * Various code improvements
 * Update junit to version 4.11
@@ -117,13 +185,7 @@
 * Backport fix for race condition on shutdown
 * sendByteBuffer should return number of sent bytes
 
-## v0.3.1
-
-* [maven-release-plugin] prepare release v0.3.1
-* Update README.md
-* [maven-release-plugin] prepare for next development iteration
-
-## v0.3.0
+## v0.3.0 (2013-11-03)
 
 * [maven-release-plugin] prepare release v0.3.0
 * Prepare for release

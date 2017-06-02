@@ -1,11 +1,11 @@
 package guide;
 
+import java.nio.channels.Selector;
 import java.util.ArrayList;
 
 import org.zeromq.ZContext;
 import org.zeromq.ZFrame;
 import org.zeromq.ZMQ;
-import org.zeromq.ZMQ.PollItem;
 import org.zeromq.ZMQ.Poller;
 import org.zeromq.ZMQ.Socket;
 import org.zeromq.ZMsg;
@@ -18,37 +18,39 @@ import org.zeromq.ZMsg;
 public class spqueue
 {
 
-    private final static String WORKER_READY = "\001";      //  Signals worker is ready
+    private final static String WORKER_READY = "\001"; //  Signals worker is ready
 
     public static void main(String[] args)
     {
         ZContext ctx = new ZContext();
+        Selector selector = ctx.createSelector();
         Socket frontend = ctx.createSocket(ZMQ.ROUTER);
         Socket backend = ctx.createSocket(ZMQ.ROUTER);
-        frontend.bind("tcp://*:5555");    //  For clients
-        backend.bind("tcp://*:5556");    //  For workers
+        frontend.bind("tcp://*:5555"); //  For clients
+        backend.bind("tcp://*:5556"); //  For workers
 
         //  Queue of available workers
         ArrayList<ZFrame> workers = new ArrayList<ZFrame>();
 
+        Poller poller = ctx.createPoller(2);
+        poller.register(backend, Poller.POLLIN);
+        poller.register(frontend, Poller.POLLIN);
+
         //  The body of this example is exactly the same as lruqueue2.
         while (true) {
-            PollItem items[] = {
-                    new PollItem(backend, Poller.POLLIN),
-                    new PollItem(frontend, Poller.POLLIN)
-            };
-            int rc = ZMQ.poll(items, workers.size() > 0 ? 2 : 1, -1);
+            boolean workersAvailable = workers.size() > 0;
+            int rc = poller.poll(-1);
 
             //  Poll frontend only if we have available workers
             if (rc == -1)
-                break;              //  Interrupted
+                break; //  Interrupted
 
             //  Handle worker activity on backend
-            if (items[0].isReadable()) {
+            if (poller.pollin(0)) {
                 //  Use worker address for LRU routing
                 ZMsg msg = ZMsg.recvMsg(backend);
                 if (msg == null)
-                    break;          //  Interrupted
+                    break; //  Interrupted
                 ZFrame address = msg.unwrap();
                 workers.add(address);
 
@@ -56,10 +58,9 @@ public class spqueue
                 ZFrame frame = msg.getFirst();
                 if (new String(frame.getData(), ZMQ.CHARSET).equals(WORKER_READY))
                     msg.destroy();
-                else
-                    msg.send(frontend);
+                else msg.send(frontend);
             }
-            if (items[1].isReadable()) {
+            if (workersAvailable && poller.pollin(1)) {
                 //  Get client request, route to first available worker
                 ZMsg msg = ZMsg.recvMsg(frontend);
                 if (msg != null) {
@@ -74,7 +75,7 @@ public class spqueue
             frame.destroy();
         }
         workers.clear();
-        ctx.destroy();
+        ctx.close();
     }
 
 }
